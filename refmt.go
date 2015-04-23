@@ -34,6 +34,14 @@ func (s Style) Wrap(input string) string {
 	collapseNL := regexp.MustCompile(fmt.Sprintf("([^%[1]s])%[1]s([^%[1]s])", string(s.SplitChar)))
 	output = collapseNL.ReplaceAllString(output, fmt.Sprintf("$1%s$2", string(s.WordSep)))
 
+	// convert tabs to wordseps
+	convertTabs := regexp.MustCompile("\t")
+	output = convertTabs.ReplaceAllString(output, string(s.WordSep))
+
+	// compress wordseps
+	compressWS := regexp.MustCompile(fmt.Sprintf("%s+", string(s.WordSep)))
+	output = compressWS.ReplaceAllString(output, string(s.WordSep))
+
 	seek := 0
 	end := s.MaxWidth
 
@@ -49,6 +57,9 @@ func (s Style) Wrap(input string) string {
 		if e := strings.Index(output[seek:end], string(s.SplitChar)); e >= 0 {
 			seek += e + 1
 			end = seek + s.MaxWidth
+			if end > len(output) {
+				end = len(output)
+			}
 		}
 		i := strings.LastIndex(output[seek:end], string(s.WordSep))
 		if i >= 0 { // normal case
@@ -70,13 +81,28 @@ func (s Style) Wrap(input string) string {
 
 // Indent returns an indented version of input
 func (s Style) Indent(input string) string {
+	return s.indent(input, true)
+}
+
+// Indent2 returns an indented version of input starting with the second line
+func (s Style) Indent2(input string) string {
+	return s.indent(input, false)
+}
+
+func (s Style) indent(input string, firstLine bool) string {
 	indentStr := strings.Repeat(string(s.IndentChar), s.IndentWidth)
 	// Insert an indent at the beginning of the input:
-	output := indentStr + input
+	var output string
+	if firstLine {
+		output += indentStr
+	}
+	output += input
 	// Replace all SplitChar with SplitChar + indentStr, except for the last
 	// char (no need to indent at the end)
 	indentRe := regexp.MustCompile(fmt.Sprintf("%[1]s", string(s.SplitChar)))
-	output = indentRe.ReplaceAllString(output[:len(output)-1], string(s.SplitChar)+indentStr) + output[len(output)-1:]
+	if len(output) > 0 {
+		output = indentRe.ReplaceAllString(output[:len(output)-1], string(s.SplitChar)+indentStr) + output[len(output)-1:]
+	}
 	return output
 }
 
